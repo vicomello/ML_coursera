@@ -1,0 +1,126 @@
+---
+title: "final_project"
+author: "Victoria Oldemburgo de Mello"
+date: "14/06/2022"
+output: html_document
+---
+
+Loading packages and separating dataset
+```{r}
+library(caret)
+library(tidyverse)
+
+getwd()
+pml_training <- read_csv("pml-training.csv")
+pml_testing <- read_csv("pml-testing.csv")
+
+#removing irrelevant columns
+pml_training <- pml_training[,-1:-7]
+pml_testing <- pml_testing[,-1:-7]
+
+# removing columns with mostly NA values 
+# (we should remove imbalances from the dataset before running any models)
+
+pml_training <- pml_training[,colMeans(is.na(pml_training)) < .9]
+
+
+# create validation set
+inTrain <- createDataPartition(y=pml_training$classe, p=0.7, list=F)
+train <- pml_training[inTrain,]
+valid <- pml_training[-inTrain,]
+
+set.seed(123)
+```
+
+# Training
+
+## Random Forests
+```{r}
+
+rf_fit <- train(classe ~ ., 
+                data = train, 
+                method = "rf")
+
+pred_rf <- predict(rf_fit, valid)
+cmrf <- confusionMatrix(pred_rf, factor(valid$classe))
+cmrf
+
+```
+### area under the curve plot
+```{r}
+library(pROC)
+test_roc <- multiclass.roc(factor(valid$classe) ~ as.numeric(factor(pred_rf)), plot = TRUE, print.auc = TRUE)
+
+
+```
+
+### calculating area under the curve
+```{r}
+
+as.numeric(test_roc$auc)
+
+```
+
+## SVClassifier
+
+```{r}
+ 
+svm_Linear <- train(classe ~., data = train, method = "svmLinear")
+pred_svm <- predict(svm_Linear , valid)
+cmsvm <- confusionMatrix(pred_svm, factor(valid$classe))
+cmsvm
+
+```
+
+### area under the curve plot
+```{r}
+
+library(pROC)
+test_roc <- multiclass.roc(factor(valid$classe) ~ as.numeric(factor(pred_svm)), plot = TRUE, print.auc = TRUE)
+
+```
+
+### calculating area under the curve
+```{r}
+
+as.numeric(test_roc$auc)
+
+```
+
+
+## Decision Tree
+```{r}
+dtfit = train(classe ~ ., data = train, method = 'rpart')
+
+pred_dt <- predict(dtfit , valid)
+cmdt <- confusionMatrix(pred_dt, factor(valid$classe))
+cmdt
+
+```
+
+### area under the curve plot
+```{r}
+library(pROC)
+test_roc <- multiclass.roc(factor(valid$classe) ~ as.numeric(factor(pred_dt)), plot = TRUE, print.auc = TRUE)
+
+
+```
+
+### calculating area under the curve
+```{r}
+
+as.numeric(test_roc$auc)
+
+```
+
+
+# Testing
+Random forests was the best model, so we will select it to test.
+```{r}
+
+# predicting on test set
+pred_rf_test <- predict(rf_fit, pml_testing)
+print(pred_rf_test)
+
+
+```
